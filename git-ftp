@@ -1,0 +1,217 @@
+#!/usr/bin/env php
+<?php
+#
+# Copyright(c) 2011 René Moser
+# http://github.com/resmo/git-ftp2
+#
+# Git-ftp is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Git-ftp is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Git-ftp. If not, see <http://www.gnu.org/licenses/>.
+
+# ------------------------------------------------------------
+# General Constants
+# ------------------------------------------------------------
+define('VERSION','2.0.0');
+define('DEPLOYED_SHA1_FILE','.git-ftp.log');
+define('BASEPATH', getcwd());
+
+# ------------------------------------------------------------
+# Constant Exit Error Codes
+# ------------------------------------------------------------
+define('ERROR_USAGE',2);
+define('ERROR_MISSING_ARGUMENTS',3);
+define('ERROR_UPLOAD',4);
+define('ERROR_DOWNLOAD',5);
+define('ERROR_UNKNOWN_PROTOCOL',6);
+define('ERROR_REMOTE_LOCKED',7);
+define('ERROR_GIT',8);
+
+set_include_path(BASEPATH.'/lib/'.get_include_path());
+
+require_once 'Zend/Loader/Autoloader.php';
+$autoloader = Zend_Loader_Autoloader::getInstance();
+$autoloader->setFallbackAutoloader(true);
+
+class GitFtp {
+	
+	function __construct() {
+		// Check for missing arguments
+		if ($_SERVER['argc'] < 2) {
+			$this->actionUsage();
+			exit(ERROR_MISSING_ARGUMENTS);
+		}
+		// First argument is the action 
+		$this->action = $_SERVER['argv'][1];
+		$this->handleAction($this->action);
+	}
+
+	/**
+	*
+	*
+	*/
+	private function handleAction($actionName) {
+		$methodName = $this->getMethodName($actionName);
+		if ($methodName != "" && method_exists($this, $methodName)) {
+			$this->$methodName();
+		} else {
+			$this->actionUsage();
+			exit(ERROR_USAGE);
+		}
+	}
+
+	/**
+	*
+	*
+	*/
+	private function getMethodName($actionName) {
+		$actionName = strtolower($actionName);
+
+		$methodName = '';
+		$actionNameArray = split('-',$actionName);
+		if (!empty($actionNameArray)) {
+			foreach ($actionNameArray as $actionNameItem) {
+				$methodName .= ucfirst($actionNameItem);
+			}
+			$methodName = 'action'.ucfirst($methodName);
+		} else {
+			$methodName = 'action'.ucfirst($actionName);;
+		}
+		return $methodName;
+	}
+
+	/**
+	*
+	*
+	*/
+	private function actionUsage() {
+		echo "git-ftp <action> [<options>] <url>\n";
+	}
+
+	/**
+	*
+	*
+	*/
+	private function actionInit() {
+		new Action_Init();
+	}
+
+	/**
+	*
+	*
+	*/
+	private function actionPush() {
+		new Action_Push();
+	}
+
+	/**
+	*
+	*
+	*/
+	private function actionFetch() {
+		new Action_Fetch();
+	}
+
+	/**
+	*
+	*
+	*/
+	private function actionCatchup() {
+		new Action_Catchup();
+	}
+
+	/**
+	*
+	*
+	*/
+	private function actionHelp() {
+		echo <<<EOF
+USAGE
+	git-ftp <action> [<options>] <url>
+
+
+DESCRIPTION
+	git-ftp does FTP the GIT way.
+
+	It uses GIT to find out which files are different of the uploaded files
+	and let you save time and bandwith by uploading only those files.
+
+	It remembers the deployed state by uploading the SHA1 in a log file.
+
+
+ACTIONS
+	. init
+		Initialize the first upload to remote host.
+
+	. push
+		Uploads git tracked files which have changed since last upload.
+
+	. show
+		Gets last uploaded SHA1 from log and hooks git show.
+
+	. catchup
+		Uploads the current SHA1 to the log, does not upload any files.
+
+		This is useful if you used another FTP client to upload the
+		files and now want to remember the SHA1.
+	. help
+		Shows this help
+
+
+URL
+	. FTP (default)		host.example.com[:<port>][/<remote path>]
+	. FTP			ftp://host.example.com[:<port>][/<remote path>]
+	. SFTP			sftp://host.example.com[:<port>][/<remote path>]
+	. FTPS			ftps://host.example.com[:<port>][/<remote path>]
+	. FTPES			ftpes://host.example.com[:<port>][/<remote path>]
+
+
+OPTIONS
+	-h, --help		Show this help
+	-u, --user		FTP login name
+	-p, --passwd		FTP password
+	-s, --scope		Using a scope (e.g. dev, production, testing, foobar) 
+	-D, --dry-run		Dry run: Does not upload anything
+	-a, --all		Uploads all files, ignores deployed SHA1 hash
+	-f, --force		Force, does not ask questions
+	-n, --silent      	Silent
+	-v, --verbose		Verbose
+	--version		Prints version
+
+EXAMPLES
+	. git-ftp push -u john ftp://ftp.example.com:4445/public_ftp -p -v
+	. git-ftp push -p -u john -v ftp.example.com:4445:/public_ftp
+	. git-ftp push --scope production
+
+
+SET DEFAULTS
+	. git config git-ftp.user john
+	. git config git-ftp.url ftp.example.com
+	. git config git-ftp.password secr3t
+
+
+SET SCOPE DEFAULTS 
+	e.g. your scope is 'testing'
+	. git config git-ftp.testing.url ftp.example.local
+
+EOF;
+	}
+
+	/**
+	* Prints the version number to stdout
+	*
+	*/
+	private function actionVersion() {
+		echo 'git-ftp version '.VERSION."\n";
+	}
+}
+
+$GitFtp = new GitFtp();
