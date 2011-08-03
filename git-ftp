@@ -49,9 +49,8 @@ class GitFtp {
 			$this->actionUsage();
 			exit(ERROR_MISSING_ARGUMENTS);
 		}
-		// First argument is the action 
-		$this->action = $_SERVER['argv'][1];
-		$this->handleAction($this->action);
+		// First argument is the action
+		$this->handleAction($_SERVER['argv'][1]);
 	}
 
 	/**
