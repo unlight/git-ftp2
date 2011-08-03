@@ -1,0 +1,3 @@
+[submodule "lib/Git"]
+path = lib/Git
+url = git://github.com/resmo/Git.php.git
