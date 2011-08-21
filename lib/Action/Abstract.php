@@ -8,10 +8,10 @@ abstract class Action_Abstract {
 	protected $all_files = false;
 	protected $help = false;
 	protected $action = "";
-	protected $url = "";
 	protected $scope = "";
 	protected $repo_path = ".";
 
+	protected $remote_url = "";
 	protected $remote_host = "";
 	protected $remote_user = "";
 	protected $remote_passwd = "";
@@ -26,6 +26,8 @@ abstract class Action_Abstract {
 		$this->handleOptions();
 		$this->setRemoteParamFromConfigfile($this->remote_user, 'user');
 		$this->setRemoteParamFromConfigfile($this->remote_passwd, 'password');
+		$this->setRemoteParamFromConfigfile($this->remote_url, 'url');
+		$this->splitRemoteUrl($this->getRemoteUrl());
 	}
 
 	private function handleOptions() {
@@ -83,7 +85,7 @@ abstract class Action_Abstract {
 			}
 
 			if (isset($opts->l)) {
-				$this->url = $opts->l;
+				$this->remote_url = $opts->l;
 			}
 
 			if (isset($opts->s)) {
@@ -96,11 +98,11 @@ abstract class Action_Abstract {
 		}
 	}
 
-	private function getUrl() {
-		if ($this->url != "") {
-			return $this->url; 
+	protected function getRemoteUrl() {
+		if ($this->remote_url != "") {
+			return $this->remote_url; 
 		} else {
-			$this->getLogger()->emerg("Missing url");
+			$this->getLogger()->emerg("Missing remote_url");
 			exit(ERROR_USAGE);
 		}
 	}
@@ -116,7 +118,7 @@ abstract class Action_Abstract {
 		return $this->Logger;
 	}
 
-	private function handleUrl($url = "") {
+	private function splitRemoteUrl($url = "") {
 		$pattern = "#(ftp|ftps)://([a-zA-Z0-9:.-]*)(/[a-zA-Z0-9-~/]*)#"; // this may be fixed
 		preg_match($pattern, $url, $matches);
 		if (!isset($matches[2])) {
@@ -127,7 +129,9 @@ abstract class Action_Abstract {
 		$this->remote_protocol = $matches[1];
 		$this->getLogger()->info("Protocol: ".strtoupper($this->remote_protocol));
 		$this->remote_host = $matches[2];
+		$this->getLogger()->info("Host: ".$this->remote_host);
 		$this->remote_path = $matches[3];
+		$this->getLogger()->info("Path: ".$this->remote_path);
 	}
 
 	protected function getGit() {
