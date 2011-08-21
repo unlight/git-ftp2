@@ -4,11 +4,13 @@ abstract class Action_Abstract {
 	protected $verbosed = false;
 	protected $forced = false;
 	protected $silent = false;
-	protected $runningDry = false;
-	protected $allFiles = false;
+	protected $running_dry = false;
+	protected $all_files = false;
 	protected $help = false;
 	protected $action = "";
 	protected $url = "";
+	protected $scope = "";
+	protected $repo_path = ".";
 
 	protected $remote_host = "";
 	protected $remote_user = "";
@@ -17,25 +19,28 @@ abstract class Action_Abstract {
 	protected $remote_path = "";
 	protected $remote_sha1 = "";
 
-	protected $logger = NULL;
+	private $Logger = NULL;
+	private $Git = NULL;
 
 	function __construct() {
 		$this->handleOptions();
-		$this->initLogger();
+		$this->setRemoteParamFromConfigfile($this->remote_user, 'user');
+		$this->setRemoteParamFromConfigfile($this->remote_passwd, 'password');
 	}
 
 	private function handleOptions() {
 		try {
 			$opts = new Zend_Console_Getopt(array(
-				'v|verbose'	=> 'Verbosity',
-				'f|force'	=> 'Force',
-				'D|dry-run'	=> 'Dry run',
-				'n|silent'	=> 'Silent',
-				's|scope=s'	=> 'Scope',
-				'u|user=s'	=> 'Usernane',
+				'v|verbose'		=> 'Verbosity',
+				'f|force'		=> 'Force',
+				'D|dry-run'		=> 'Dry run',
+				'R|repo=s'		=> 'Repository',
+				'n|silent'		=> 'Silent',
+				's|scope=s'		=> 'Scope',
+				'u|user=s'		=> 'Usernane',
 				'p|passwd-s'	=> 'Password',
-				'l|url=s'	=> 'URL',
-				'h|help'	=> 'Help'
+				'l|url=s'		=> 'URL',
+				'h|help'		=> 'Help'
 				)
 			);
 			$opts->parse();
@@ -49,11 +54,15 @@ abstract class Action_Abstract {
 			}
 
 			if (isset($opts->D)) {
-				$this->runningDry = true;
+				$this->running_dry = true;
+			}
+
+			if (isset($opts->R)) {
+				$this->repo_path = $opts->R;
 			}
 
 			if (isset($opts->a)) {
-				$this->allFiles = true;
+				$this->all_files = true;
 			}
 
 			if (isset($opts->n)) {
@@ -77,6 +86,10 @@ abstract class Action_Abstract {
 				$this->url = $opts->l;
 			}
 
+			if (isset($opts->s)) {
+				$this->scope = $opts->s;
+			}
+
 		} catch (Zend_Console_Getopt_Exception $e) {
 	    		echo $e->getUsageMessage();
 	    		exit(ERROR_USAGE);
@@ -87,31 +100,70 @@ abstract class Action_Abstract {
 		if ($this->url != "") {
 			return $this->url; 
 		} else {
-			$this->logger->emerg("Missing url");
+			$this->getLogger()->emerg("Missing url");
 			exit(ERROR_USAGE);
 		}
 	}
 
-	private function initLogger() {
-		$writer = new Zend_Log_Writer_Stream('php://output');
-		if (!$this->verbosed) {
-			$writer->addFilter(Zend_Log::WARN); 
+	protected function getLogger() {
+		if ($this->Logger == NULL) {
+			$writer = new Zend_Log_Writer_Stream('php://output');
+			if (!$this->verbosed) {
+				$writer->addFilter(Zend_Log::WARN); 
+			}
+			$this->Logger = new Zend_Log($writer);
 		}
-    	$this->logger = new Zend_Log($writer);
+		return $this->Logger;
 	}
 
 	private function handleUrl($url = "") {
 		$pattern = "#(ftp|ftps)://([a-zA-Z0-9:.-]*)(/[a-zA-Z0-9-~/]*)#"; // this may be fixed
 		preg_match($pattern, $url, $matches);
 		if (!isset($matches[2])) {
-			$this->logger->emerg("Wrong url");
+			$this->getLogger()->emerg("Wrong url");
 			exit(ERROR_USAGE);
 		}
 		
 		$this->remote_protocol = $matches[1];
-		$this->logger->info("Protocol: ".strtoupper($this->remote_protocol));
+		$this->getLogger()->info("Protocol: ".strtoupper($this->remote_protocol));
 		$this->remote_host = $matches[2];
 		$this->remote_path = $matches[3];
 	}
-}
 
+	protected function getGit() {
+		if ($this->Git == NULL) {
+			$this->Git = Git_Git::open($this->repo_path);
+			$this->getLogger()->info("Open git repo: ".$this->repo_path);
+		}
+		return $this->Git;
+	}
+
+	protected function runGit($command) {
+		try {
+			$this->getGit()->run($command);
+		} catch (Exception $e) {
+			$this->getLogger()->emerg("Error: ".$e);
+			exit(ERROR_GIT);
+		}
+	} 
+
+	protected function setRemoteParamFromConfigfile($param, $configparam) {
+		try {
+			if ($param == "" && file_exists(CONFIG_FILE) && $this->scope != "") {
+				$param = $this->getGit()->run("config -f '".CONFIG_FILE."' --get git-ftp.".$this->scope.".".$configparam);
+			}
+			if ($param == "" && file_exists(CONFIG_FILE)) {
+				$param = $this->getGit()->run("config -f '".CONFIG_FILE."' --get git-ftp.".$configparam);
+			}
+			if ($param == "" && $this->scope != "") {
+				$param = $this->getGit()->run("config --get git-ftp.".$this->scope.".".$configparam);
+			}
+			if ($param == "") {
+				$param = $this->getGit()->run("config --get git-ftp.".$configparam);
+			}
+		} catch (Exception $e) {
+			//ignored
+		}
+		$this->getLogger()->info("Remote ".$configparam.": ".$param);
+	}
+}
