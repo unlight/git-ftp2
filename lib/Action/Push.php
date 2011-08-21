@@ -8,4 +8,9 @@ class Action_Push extends Action_Abstract {
 		$this->handleRemoteParams();
 		$this->getLogger()->info('Starting action push');
 	}
+
+	public function help() {
+		echo "Print some help usage for ".get_class()."\n";
+		exit(0);
+	}
 }

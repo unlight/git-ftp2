@@ -24,6 +24,9 @@ abstract class Action_Abstract {
 
 	function __construct() {
 		$this->handleOptions();
+		if ($this->help) {
+			$this->help();
+		}
 	}
 
 	private function handleOptions() {
@@ -180,4 +183,10 @@ abstract class Action_Abstract {
 			exit(ERROR_USAGE);
 		}
 	}
+
+	public function help() {
+		echo "Sorry no help for this action\n";
+		exit(0);
+	}
 }
+
