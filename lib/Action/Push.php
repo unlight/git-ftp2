@@ -4,6 +4,6 @@ class Action_Push extends Action_Abstract {
 
 	function __construct() {
 		parent::__construct();
-		$this->logger->info('Starting action push');
+		$this->getLogger()->info('Starting action push');
 	}
 }
