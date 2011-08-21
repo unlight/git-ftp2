@@ -24,10 +24,6 @@ abstract class Action_Abstract {
 
 	function __construct() {
 		$this->handleOptions();
-		$this->setRemoteParamFromConfigfile($this->remote_user, 'user');
-		$this->setRemoteParamFromConfigfile($this->remote_passwd, 'password');
-		$this->setRemoteParamFromConfigfile($this->remote_url, 'url');
-		$this->splitRemoteUrl($this->getRemoteUrl());
 	}
 
 	private function handleOptions() {
@@ -118,6 +114,13 @@ abstract class Action_Abstract {
 		return $this->Logger;
 	}
 
+	protected function handleRemoteParams() {
+		$this->setRemoteParamFromConfigfile($this->remote_user, 'user');
+		$this->setRemoteParamFromConfigfile($this->remote_passwd, 'password');
+		$this->setRemoteParamFromConfigfile($this->remote_url, 'url');
+		$this->splitRemoteUrl($this->getRemoteUrl());
+	}
+
 	private function splitRemoteUrl($url = "") {
 		$pattern = "#(ftp|ftps)://([a-zA-Z0-9:.-]*)(/[a-zA-Z0-9-~/]*)#"; // this may be fixed
 		preg_match($pattern, $url, $matches);
@@ -169,5 +172,12 @@ abstract class Action_Abstract {
 			//ignored
 		}
 		$this->getLogger()->info("Remote ".$configparam.": ".$param);
+	}
+
+	protected function checkDirtyWorkspace() {
+		if (!$this->getGit()->is_clean_workspace()) {
+			$this->getLogger()->emerg("Error: workspace is dirty");
+			exit(ERROR_USAGE);
+		}
 	}
 }
