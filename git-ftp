@@ -24,7 +24,7 @@ define('VERSION','2.0.0');
 define('DEPLOYED_SHA1_FILE','.git-ftp.log');
 define('IGNORE_FILE','.git-ftp-ignore');
 define('CONFIG_FILE','.git-ftp-config');
-define('BASEPATH', getcwd());
+define('BASEPATH', __DIR__);
 
 # ------------------------------------------------------------
 # Constant Exit Error Codes

@@ -5,8 +5,10 @@ class Action_Init extends Action_Abstract {
 	function __construct() {
 		parent::__construct();
 		$this->checkDirtyWorkspace();
-		$this->handleRemoteParams();
+		$this->setRemoteParams();
 		$this->getLogger()->info('Starting action init');
+		$this->uploadAllFiles();
+		$this->deploySha1File();
 	}
 
 	public function help() {

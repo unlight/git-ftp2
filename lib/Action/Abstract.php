@@ -21,6 +21,7 @@ abstract class Action_Abstract {
 
 	private $Logger = NULL;
 	private $Git = NULL;
+	private $Ftp = NULL;
 
 	function __construct() {
 		$this->handleOptions();
@@ -97,12 +98,56 @@ abstract class Action_Abstract {
 		}
 	}
 
+	private function getRemoteParam($param, $name) {
+		if ($param!= "") {
+			return $param;
+		} else {
+			$this->getLogger()->emerg("Missing remote ".$name);
+			exit(ERROR_USAGE);
+		}
+	}
+
+	protected function getRemoteUser() {
+		return $this->getRemoteParam($this->remote_user, "user");
+	}
+
+	protected function getRemotePassword() {
+		return $this->getRemoteParam($this->remote_passwd, "password");
+	}
+
+	protected function getRemoteHost() {
+		return $this->getRemoteParam($this->remote_host, "host");
+	}
+
 	protected function getRemoteUrl() {
 		if ($this->remote_url != "") {
 			return $this->remote_url; 
 		} else {
-			$this->getLogger()->emerg("Missing remote_url");
+			$this->getLogger()->emerg("Missing remote url");
 			exit(ERROR_USAGE);
+		}
+	}
+
+	protected function getRemotePath() {
+		return $this->remote_path;
+	}
+
+	protected function deploySha1File() {
+		try {
+			$Ftp = $this->getFtp();
+			$this->getLogger()->info("Uploading '".DEPLOYED_SHA1_FILE."'");
+			$this->remote_sha1 = $this->getGit()->run("log -n 1 --pretty=format:%H");
+			$fh = fopen(DEPLOYED_SHA1_FILE, 'w') or die("can't open file");
+			fwrite($fh, $this->remote_sha1);
+			fclose($fh);
+			$destination_file = $this->getRemotePath()."/".DEPLOYED_SHA1_FILE;
+			$Ftp->put($destination_file, DEPLOYED_SHA1_FILE, FTP_BINARY);
+			$Ftp->close();
+			$this->resetFtp();
+			echo $this->remote_sha1." deployed.\n";
+		} catch (FtpException $e) {
+			$this->getLogger()->emerg("Error: ".$e->getMessage());
+			exit(ERROR_UPLOAD);
 		}
 	}
 
@@ -117,7 +162,7 @@ abstract class Action_Abstract {
 		return $this->Logger;
 	}
 
-	protected function handleRemoteParams() {
+	protected function setRemoteParams() {
 		$this->setRemoteParamFromConfigfile($this->remote_user, 'user');
 		$this->setRemoteParamFromConfigfile($this->remote_passwd, 'password');
 		$this->setRemoteParamFromConfigfile($this->remote_url, 'url');
@@ -146,6 +191,19 @@ abstract class Action_Abstract {
 			$this->getLogger()->info("Open git repo: ".$this->repo_path);
 		}
 		return $this->Git;
+	}
+
+	protected function getFtp() {
+		if ($this->Ftp == NULL) {
+			$this->Ftp = new Ftp_Ftp();
+			$this->Ftp->connect($this->getRemoteHost());
+			$this->Ftp->login($this->getRemoteUser(), $this->getRemotePassword());
+		}
+		return $this->Ftp;
+	}
+
+	protected function resetFtp() {
+		$this->Ftp = NULL;
 	}
 
 	protected function runGit($command) {
@@ -187,6 +245,33 @@ abstract class Action_Abstract {
 	public function help() {
 		echo "Sorry no help for this action\n";
 		exit(0);
+	}
+
+	protected function uploadAllFiles() {
+		$files_array = $this->getGit()->list_files();
+		if (empty($files_array)) {
+			echo "No files to handle\n";
+			return;
+		}
+		try {
+			$Ftp = $this->getFtp();
+			$size = count($files_array);
+			$i = 1;
+			foreach ($files_array as $key => $file) {
+				echo $i++."/".$size.": Uploading '$file'\n";
+				if ($file == "") {
+					continue;
+				}
+				$destination_file = $this->getRemotePath()."/".$file;
+				$Ftp->mkDirRecursive(dirname($destination_file));
+				$Ftp->put($destination_file, $file, FTP_BINARY);
+			}
+			$Ftp->close();
+			$this->resetFtp();
+		} catch (FtpException $e) {
+			$this->getLogger()->emerg("Error: ".$e->getMessage());
+			exit(ERROR_UPLOAD);
+		}
 	}
 }
 
