@@ -60,7 +60,7 @@ abstract class Action_Abstract {
 			}
 
 			if (isset($opts->R)) {
-				$this->repo_path = $opts->R;
+				$this->repo_path = rtrim($opts->R, '/\\');
 			}
 
 			if (isset($opts->a)) {
@@ -170,7 +170,7 @@ abstract class Action_Abstract {
 	}
 
 	private function splitRemoteUrl($url = "") {
-		$pattern = "#(ftp|ftps)://([a-zA-Z0-9:.-]*)(/[a-zA-Z0-9-~/]*)#"; // this may be fixed
+		$pattern = "#(ftp|ftps)://([a-zA-Z0-9:.-]*)(/[a-zA-Z0-9-~\./]*)#"; // this may be fixed
 		preg_match($pattern, $url, $matches);
 		if (!isset($matches[2])) {
 			$this->getLogger()->emerg("Wrong url");
@@ -264,7 +264,8 @@ abstract class Action_Abstract {
 				}
 				$destination_file = $this->getRemotePath()."/".$file;
 				$Ftp->mkDirRecursive(dirname($destination_file));
-				$Ftp->put($destination_file, $file, FTP_BINARY);
+				$absolutePath = $this->repo_path . '/' . $file;
+				$Ftp->put($destination_file, $absolutePath, FTP_BINARY);
 			}
 			$Ftp->close();
 			$this->resetFtp();
